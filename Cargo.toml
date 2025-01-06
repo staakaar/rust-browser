@@ -1,3 +1,5 @@
+workspace = { members = ["saba_core"]}
+
 [package]
 name = "rust-browser"
 version = "0.1.0"
