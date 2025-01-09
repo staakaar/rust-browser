@@ -1,9 +1,24 @@
-workspace = { members = ["saba_core"]}
+workspace = { members = [ "net/wasabi","saba_core"]}
 
 [package]
+authors = ["iwataka"]
 name = "rust-browser"
 version = "0.1.0"
 edition = "2021"
+default-run = "rust-browser"
+
+[features]
+default = ["wasabi"]
+wasabi = ["dep:net_wasabi", "dep:noli"]
+# cargoコマンド時に--features=wasabi
+# optionalが指定されていて上記のように設定している場合にcargo build利用時に自動で指定された状態になる
+
+[[bin]]
+name = "rust-browser"
+path = "src/main.rs"
+required-features = ["wasabi"] # L10に紐づいている
 
 [dependencies]
-noli = { git = "https://github.com/hikalium/wasabi.git", branch = "for_saba" }
+saba_core = { path = "./saba_core" }
+net_wasabi = { path = "./net/wasabi", optional =  true }
+noli = { git = "https://github.com/hikalium/wasabi.git", branch = "for_saba", optional = true }
