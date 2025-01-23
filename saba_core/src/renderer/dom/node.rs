@@ -1,6 +1,14 @@
 use alloc::rc::Rc;
 use alloc::rc::Weak;
 use core::cell::RefCell;
+use alloc::string::String;
+
+#[derive(Debug, Clone)]
+pub enum NodeKind {
+    Document,
+    Element(Element),
+    Text(String),
+}
 
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -32,5 +40,62 @@ impl Node {
 
     pub fn parent(&self) -> Weak<RefCell<Node>> {
         self.parent.clone()
+    }
+
+    pub fn set_first_child(&mut self, first_child: Option<Rc<RefCell<Node>>>) {
+        self.first_child = first_child;
+    }
+
+    pub fn first_child(&self) -> Option<Rc<RefCell<Node>>> {
+        self.first_child.as_ref().cloned()
+    }
+    
+    pub fn set_last_child(&mut self, last_child: Weak<RefCell<Node>>) {
+        self.last_child = last_child
+    }
+
+    pub fn last_child(&self) -> Weak<RefCell<Node>> {
+        self.last_child.clone()
+    }
+
+    pub fn set_previous_sibling(&mut self, previous_sibling: Weak<RefCell<Node>>) {
+        self.previous_sibling = previous_sibling;
+    }
+
+    pub fn previous_sibling(&self) -> Weak<RefCell<Node>> {
+        self.previous_sibling.clone()
+    }
+
+    pub fn set_next_sibling(&mut self, next_sibling: Option<Rc<RefCell<Node>>>) {
+        self.next_sibling = next_sibling;
+    }
+
+    pub fn next_sibling(&self) -> Option<Rc<RefCell<Node>>> {
+        self.next_sibling.as_ref().cloned()
+    }
+
+    pub fn set_window(&mut self, window: Weak<RefCell<Window>>) {
+        self.window = window
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Window {
+    document: Rc<RefCell<Node>>
+}
+
+impl Window {
+    pub fn new() -> Self {
+        let window = Self {
+            document: Rc::new(RefCell::new(Node::new(NodeKind::Document))),
+        };
+
+        window.document.borrow_mut().set_window(Rc::downgrade(&Rc::new(RefCell::new(window.clone()))));
+
+        window
+    }
+
+    pub fn document(&self) -> Rc<RefCell<Node>> {
+        self.document.clone()
     }
 }
