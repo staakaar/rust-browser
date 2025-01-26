@@ -1,7 +1,11 @@
+use crate::renderer::html::attribute::Attribute;
+use alloc::vec::Vec;
 use alloc::rc::Rc;
 use alloc::rc::Weak;
 use core::cell::RefCell;
+use core::str::FromStr;
 use alloc::string::String;
+use alloc::format;
 
 #[derive(Debug, Clone)]
 pub enum NodeKind {
@@ -77,6 +81,24 @@ impl Node {
     pub fn set_window(&mut self, window: Weak<RefCell<Window>>) {
         self.window = window
     }
+
+    pub fn kind(&self) -> NodeKind {
+        self.kind.clone()
+    }
+
+    pub fn get_element(&self) -> Option<Element> {
+        match self.kind {
+            NodeKind::Document | NodeKind::Text(_) => None,
+            NodeKind::Element(ref e) => Some(e.clone()),
+        }
+    }
+
+    pub fn element_kind(&self) -> Option<ElementKind> {
+        match self.kind {
+            NodeKind::Document | NodeKind::Text(_) => None,
+            NodeKind::Element(ref e) => Some(e.kind()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -97,5 +119,48 @@ impl Window {
 
     pub fn document(&self) -> Rc<RefCell<Node>> {
         self.document.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Element {
+    kind: ElementKind,
+    attributes: Vec<Attribute>,
+}
+
+impl Element {
+    pub fn new(element_name: &str, attributes: Vec<Attribute>) -> Self {
+        Self {
+            kind: ElementKind::from_str(element_name).expect("failed to convert to ElementKind"),
+            attributes,
+        }
+    }
+    
+    pub fn kind(&self) -> ElementKind {
+        self.kind
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ElementKind {
+    Html,
+    Head,
+    Style,
+    Script,
+    Body,
+}
+
+impl FromStr for ElementKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "html" => Ok(ElementKind::Html),
+            "head" => Ok(ElementKind::Head),
+            "style" => Ok(ElementKind::Style),
+            "script" => Ok(ElementKind::Script),
+            "body" => Ok(ElementKind::Body),
+            _ => Err(format!("unimplemented element name: {:?}", s)),
+        }
     }
 }
