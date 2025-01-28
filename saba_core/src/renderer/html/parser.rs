@@ -1,5 +1,7 @@
+use crate::renderer::dom::node::Element;
 use crate::renderer::dom::node::ElementKind;
 use crate::renderer::dom::node::Node;
+use crate::renderer::dom::node::NodeKind;
 use crate::renderer::dom::node::Window;
 use crate::renderer::html::token::HtmlTokenizer;
 use alloc::rc::Rc;
@@ -7,6 +9,7 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::str::FromStr;
 
+use super::attribute::Attribute;
 use super::token::HtmlToken;
 
 pub enum InsertionMode {
@@ -39,6 +42,51 @@ impl HtmlParser {
             stack_of_open_elements: Vec::new(),
             t,
         }
+    }
+
+    fn create_element(&self, tag: &str, attributes: Vec<Attribute>) -> Node {
+        Node::new(NodeKind::Element(Element::new(tag, attributes)))
+    }
+
+    fn insert_element(&mut self, tag: &str, attributes: Vec<Attribute>) {
+        let window = self.window.borrow();
+        let current = match self.stack_of_open_elements.last() {
+            Some(n) => n.clone(),
+            None => window.document(),
+        };
+
+        let node = Rc::new(RefCell::new(self.create_element(tag, attributes)));
+
+        if current.borrow().first_child().is_some() {
+            let mut last_sibling = current.borrow().first_child();
+            loop {
+                last_sibling = match last_sibling {
+                    Some(ref node) => {
+                        if node.borrow().next_sibling().is_some() {
+                            node.borrow().next_sibling()
+                        } else {
+                            break;
+                        }
+                    }
+                    None => unimplemented!("last_sibiling should be Some"),
+                };
+            }
+
+            last_sibling.unwrap().borrow_mut().set_next_sibling(Some(node.clone()));
+            node.borrow_mut().set_previous_sibling(Rc::downgrade(
+                &current
+                        .borrow()
+                        .first_child()
+                        .expect("failed to get a first child"),
+            ));
+        } else {
+            current.borrow_mut().set_first_child(Some(node.clone()));
+        }
+
+        current.borrow_mut().set_last_child(Rc::downgrade(&node));
+        node.borrow_mut().set_parent(Rc::downgrade(&current));
+
+        self.stack_of_open_elements.push(node);
     }
 
     pub fn construct_tree(&mut self) -> Rc<RefCell<Window>> {
@@ -228,9 +276,67 @@ impl HtmlParser {
                         _ => {}
                     }
                 }
-                InsertionMode::Text => {}
-                InsertionMode::AfterBody => {}
-                InsertionMode::AfterAfterBody => {}
+                InsertionMode::Text => {
+                    match token {
+                        Some(HtmlToken::Eof) | None => {
+                            return self.window.clone();
+                        }
+                        Some(HtmlToken::EndTag { ref tag }) => {
+                            if tag == "style" {
+                                self.pop_until(ElementKind::Style);
+                                self.mode = self.original_insertion_mode;
+                                token = self.t.next();
+                                continue;
+                            }
+                            if tag == "script" {
+                                self.pop_until(ElementKind::Script);
+                                self.mode = self.original_insertion_mode;
+                                token = self.t.next();
+                                continue;
+                            }
+                        }
+                        Some(HtmlToken::Char(c)) => {
+                            self.insert_chat(c);
+                            token = self.t.next();
+                            continue;
+                        }
+                        _ => {}
+                    }
+                    self.mode = self.original_insertion_mode;
+                }
+                InsertionMode::AfterBody => {
+                    match token {
+                        Some(HtmlToken::Char(_c)) => {
+                            token = self.t.next();
+                            continue;
+                        }
+                        Some(HtmlToken::EndTag { ref tag }) => {
+                            if tag == "html" {
+                                self.mode = InsertionMode::AfterAfterBody;
+                                token = self.t.next();
+                                continue;
+                            }
+                        }
+                        Some(HtmlToken::Eof) | None => {
+                            return self.window.clone();
+                        }
+                        _ => {}
+                    }
+                    self.mode = InsertionMode::InBody;
+                }
+                InsertionMode::AfterAfterBody => {
+                    match token {
+                        Some(HtmlToken::Char(_c)) => {
+                            token = self.t.next();
+                            continue;
+                        }
+                        Some(HtmlToken::Eof) | None => {
+                            return self.window.clone();
+                        }
+                        _ => {}
+                    }
+                    self.mode = InsertionMode::InBody;
+                }
             }
         }
 
