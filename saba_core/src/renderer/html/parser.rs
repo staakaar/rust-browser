@@ -323,6 +323,20 @@ impl HtmlParser {
                 }
                 InsertionMode::InBody => {
                     match token {
+                        Some(HtmlToken::StartTag { 
+                            ref tag,
+                            self_closing: _,
+                            ref attributes,
+                        }) => match tag.as_str() {
+                            "p" => {
+                                self.insert_element(tag, attributes.to_vec());
+                                token = self.t.next();
+                                continue;
+                            }
+                            _ => {
+                                token = self.t.next();
+                            }
+                        },
                         Some(HtmlToken::EndTag { 
                             ref tag 
                         }) => {
@@ -343,6 +357,12 @@ impl HtmlParser {
                                     } else {
                                         token = self.t.next();
                                     }
+                                    continue;
+                                }
+                                "p" => {
+                                    let element_kind = ElementKind::from_str(tag).expect("failed to convert string to ElementKind");
+                                    token = self.t.next();
+                                    self.pop_until(element_kind);
                                     continue;
                                 }
                                 _ => {
