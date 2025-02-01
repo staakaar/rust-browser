@@ -14,6 +14,19 @@ pub enum NodeKind {
     Text(String),
 }
 
+impl PartialEq for NodeKind {
+    fn eq(&self, other: &Self) -> bool {
+        match &self {
+            NodeKind::Document => matches!(other, NodeKind::Document),
+            NodeKind::Element(e1) => match &other {
+                NodeKind::Element(e2) => e1.kind == e2.kind,
+                _ => false,
+            },
+            NodeKind::Text(_) => matches!(other, NodeKind::Text(_)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Node {
     pub kind: NodeKind,
@@ -101,6 +114,12 @@ impl Node {
     }
 }
 
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Window {
     document: Rc<RefCell<Node>>
@@ -150,7 +169,8 @@ pub enum ElementKind {
     Body,
     P,
     H1,
-    H2
+    H2,
+    A
 }
 
 impl FromStr for ElementKind {
@@ -166,6 +186,7 @@ impl FromStr for ElementKind {
             "p" => Ok(ElementKind::P),
             "h1" => Ok(ElementKind::H1),
             "h2" => Ok(ElementKind::H2),
+            "a" => Ok(ElementKind::A),
             _ => Err(format!("unimplemented element name: {:?}", s)),
         }
     }
